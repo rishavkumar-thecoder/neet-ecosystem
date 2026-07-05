@@ -2,9 +2,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { GraduationCap, Clock, TrendingUp, Target, BookOpen, Award, Flame, Brain } from 'lucide-react'
+import { GraduationCap, Clock, TrendingUp, Target, BookOpen, Award, Flame, Brain, ListTodo } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { PomodoroSheet } from '@/components/pomodoro/pomodoro-sheet'
+import { TopicCheckItem } from './topic-check-item'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -23,6 +25,14 @@ export default async function DashboardPage() {
     .select('*')
     .eq('user_id', user.id)
     .single()
+
+  // Fetch today's study plans for the Pomodoro sheet and checklist
+  const today = new Date().toISOString().split('T')[0]
+  const { data: plans } = await supabase
+    .from('study_plans')
+    .select('id, status, syllabus (topic, subject, estimated_mins)')
+    .eq('user_id', user.id)
+    .eq('plan_date', today)
 
   if (!profile) redirect('/onboarding')
 
@@ -130,14 +140,17 @@ export default async function DashboardPage() {
         {/* Quick Actions */}
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
           <Link href="/chat" className="block group">
-            <Card className="h-full bg-gradient-to-br from-primary/10 to-zinc-900 border-primary/20 hover:border-primary/50 transition-all">
+            <Card className="h-full bg-gradient-to-br from-sky-500/10 to-zinc-900 border-sky-500/20 hover:border-sky-500/50 transition-all">
               <CardHeader>
-                <Brain className="w-8 h-8 text-primary mb-2 group-hover:scale-110 transition-transform" />
+                <Brain className="w-8 h-8 text-sky-400 mb-2 group-hover:scale-110 transition-transform" />
                 <CardTitle className="text-white text-xl">AI Doubt Solver</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-zinc-400 text-sm">Chat with your personal AI tutor. Ask concepts, PYQs, or mnemonics.</p>
-                <Button className="w-full mt-4 bg-primary hover:bg-primary/90 text-white">Start Chatting</Button>
+                {/* FIX: Replaced <Button> with a styled <div> to prevent <button> inside <a> tag HTML violation */}
+                <div className="w-full mt-4 bg-sky-500 hover:bg-sky-600 text-white font-medium py-2 px-4 rounded-md transition-colors text-center shadow-lg shadow-sky-500/20">
+                  Start Chatting
+                </div>
               </CardContent>
             </Card>
           </Link>
@@ -150,11 +163,45 @@ export default async function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-zinc-400 text-sm">Solve past 10 years NEET questions with detailed explanations.</p>
-                <Button variant="outline" className="w-full mt-4 border-purple-500/50 text-purple-300 hover:bg-purple-500/10">Solve Now</Button>
+                {/* FIX: Replaced <Button> with a styled <div> */}
+                <div className="w-full mt-4 border border-purple-500/50 text-purple-300 hover:bg-purple-500/10 font-medium py-2 px-4 rounded-md transition-colors text-center">
+                  Solve Now
+                </div>
               </CardContent>
             </Card>
           </Link>
         </div>
+      </div>
+
+      {/* NEW: Today's Session & Pomodoro Area */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2 bg-zinc-900 border-zinc-800 shadow-lg shadow-black/20">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <ListTodo className="w-5 h-5 text-primary" /> Today's Target
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {plans && plans.length > 0 ? (
+              plans.map((plan: any) => <TopicCheckItem key={plan.id} plan={plan} />)
+            ) : (
+              <div className="text-center py-8 bg-zinc-950/50 rounded-lg border border-dashed border-zinc-800">
+                <p className="text-zinc-400 mb-2">No specific topics scheduled for today.</p>
+                <p className="text-zinc-500 text-sm">Start a Pomodoro session below to track general study time!</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-primary/10 to-zinc-900 border-primary/20 shadow-lg shadow-black/20 flex flex-col">
+          <CardHeader>
+            <CardTitle className="text-white text-xl">Focus Timer</CardTitle>
+            <p className="text-zinc-400 text-sm mt-1">Start a 25-min Pomodoro session to earn XP.</p>
+          </CardHeader>
+          <CardContent className="flex-1 flex flex-col justify-end">
+            <PomodoroSheet plans={plans || []} />
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
