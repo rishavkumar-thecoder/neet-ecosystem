@@ -62,24 +62,31 @@ export async function POST(request: NextRequest) {
       isNewUser = true
     }
 
-    // 5. Sign in the user to establish the browser session (sets the cookies)
-    // We use the standard client here so Next.js handles the cookie setting correctly
+        // 5. Sign in the user to establish the browser session (sets the cookies)
+    // We generate a secure magic link token to establish the session WITHOUT needing their password.
     const supabaseClient = await createClient()
     
-    const { data: sessionData, error: sessionError } = await supabaseClient.auth.signInWithPassword({
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'magiclink',
       email: pseudoEmail,
-      password: pseudoPassword
+    })
+
+    if (linkError || !linkData?.properties?.hashed_token) {
+      console.error('❌ Magic link generation error:', linkError)
+      return NextResponse.json({ error: 'Failed to establish session' }, { status: 500 })
+    }
+
+    const { data: verifyData, error: sessionError } = await supabaseClient.auth.verifyOtp({
+      token_hash: linkData.properties.hashed_token,
+      type: 'magiclink',
     })
 
     if (sessionError) {
       console.error('❌ Session error:', sessionError)
-      return NextResponse.json({ 
-        error: 'Failed to establish session' 
-      }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to establish session' }, { status: 500 })
     }
 
-    const userId = sessionData.user.id
-
+    const userId = verifyData.user.id
     // 6. Check if the profile exists in the public.profiles table
     const { data: profile } = await supabaseAdmin
       .from('profiles')
@@ -94,7 +101,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      user: sessionData.user,
+      user: verifyData.user, // ✅ Use the new variable name
       isNewUser: needsOnboarding
     })
 

@@ -8,20 +8,18 @@ import { getSystemPrompt } from '@/lib/ai/prompts'
 
 export async function POST(req: Request) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
   
+  // FIX: Added 'data:' prefix to destructuring
+  const { data: { user } } = await supabase.auth.getUser()
   if (!user) return new Response('Unauthorized', { status: 401 })
 
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   const { data: stats } = await supabase.from('user_stats').select('*').eq('user_id', user.id).single()
-  
-  const body = await req.json()
-  
-  // Safely extract the messages array whether it's sent directly or nested
-  const uiMessages = Array.isArray(body) ? body : body.messages
 
+  const body = await req.json()
+  const uiMessages = Array.isArray(body) ? body : body.messages
+  
   if (!uiMessages || !Array.isArray(uiMessages)) {
-    console.error('Invalid messages payload received:', body)
     return new Response('Invalid messages format', { status: 400 })
   }
 
@@ -32,24 +30,24 @@ export async function POST(req: Request) {
     date: new Date().toLocaleDateString()
   })
 
-  // 👇 FIX: Added 'await' because convertToModelMessages is async in AI SDK v6
+  // Convert UI messages to model messages (AI SDK v5/v6)
   const coreMessages = await convertToModelMessages(uiMessages)
 
   const result = streamText({
-    model: google('gemini-2.5-flash'),
+    model: google('gemini-2.0-flash'),
     system: systemPrompt,
     messages: coreMessages,
-    maxSteps: 5,
+    maxSteps: 5, // Allows the AI to call a tool, read the result, and respond
     tools: {
       get_topics: tool({
-        description: 'Fetch topics from the syllabus for a specific chapter or subject',
+        description: 'Fetch topics from the syllabus for a specific chapter or subject. ALWAYS use this before scheduling a plan.',
         parameters: z.object({
           chapterName: z.string().describe('The name of the chapter or subject'),
         }),
         execute: async ({ chapterName }) => await fetchSyllabus(chapterName),
       }),
       schedule_plan: tool({
-        description: 'Schedule a study plan for the user. Use this when the user asks to plan their day or week.',
+        description: 'Schedule a study plan for the user. Use this when the user asks to plan their day or week. You MUST get topic_ids from get_topics first.',
         parameters: z.object({
           planData: z.array(z.object({
             date: z.string().describe('YYYY-MM-DD format'),

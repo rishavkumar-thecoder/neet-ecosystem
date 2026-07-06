@@ -3,7 +3,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, MessageSquare, BookOpen, Swords, User } from 'lucide-react'
+import { Home, MessageSquare, BookOpen, Swords, User, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const tabs = [
@@ -12,6 +12,7 @@ const tabs = [
   { href: '/pyqs', icon: BookOpen, label: 'PYQs' },
   { href: '/battle', icon: Swords, label: 'Battle' },
   { href: '/profile', icon: User, label: 'Profile' },
+  { href: '/settings', icon: Settings, label: 'Settings' }
 ]
 
 export function MobileNav() {
@@ -19,7 +20,7 @@ export function MobileNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-zinc-900/80 backdrop-blur-lg border-t border-zinc-800 pb-[env(safe-area-inset-bottom)]">
-      <div className="grid grid-cols-5 h-16">
+      <div className="grid grid-cols-6 h-16">
         {tabs.map((tab) => {
           const isActive = pathname === tab.href
           return (
